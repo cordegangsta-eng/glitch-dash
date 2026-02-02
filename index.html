@@ -6,7 +6,7 @@
     <title>GLITCH DASH | MEGA BOSS</title>
     <style>
         body { margin: 0; background: #000; overflow: hidden; font-family: 'Courier New', monospace; }
-        canvas { display: block; cursor: pointer; }
+        canvas { display: block; }
         #ui {
             position: absolute; top: 15px; left: 15px;
             color: #0ff; font-size: 20px; font-weight: bold;
@@ -23,7 +23,7 @@
     const ctx = canvas.getContext('2d');
     const ui = document.getElementById('ui');
 
-    let gameActive = false;
+    let gameActive = true;
     let score = 0;
     let highScore = localStorage.getItem('glitchHighScore') || 0;
     let baseSpeed = 8;
@@ -43,14 +43,12 @@
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
         p.y = canvas.height - p.size;
-        // Build floating shapes
         bgShapes = [];
-        for(let i=0; i<20; i++) {
+        for(let i=0; i<15; i++) {
             bgShapes.push({
                 x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-                size: Math.random() * 40 + 20, speed: Math.random() * 0.5 + 0.2,
-                type: Math.floor(Math.random() * 3), rot: Math.random() * Math.PI,
-                vY: (Math.random() - 0.5) * 2 // Vertical movement for Boss Level
+                size: Math.random() * 30 + 10, speed: Math.random() * 0.5 + 0.2,
+                vY: (Math.random() - 0.5) * 2
             });
         }
     }
@@ -60,18 +58,13 @@
     function spawn() {
         if (!gameActive) return;
         const rand = Math.random();
-        // Hollow Wall
         if (rand > 0.75) {
-            const hY = Math.random() * (canvas.height - 280) + 50;
-            obstacles.push({ x: canvas.width, w: 60, h: canvas.height, type: 'hollow', holeY: hY, holeH: 150 });
-        } 
-        // Platform
-        else if (rand > 0.5) {
+            const hY = Math.random() * (canvas.height - 300) + 50;
+            obstacles.push({ x: canvas.width, w: 60, h: canvas.height, type: 'hollow', holeY: hY, holeH: 160 });
+        } else if (rand > 0.5) {
             const pY = canvas.height - 200 - (Math.random() * 120);
             obstacles.push({ x: canvas.width, w: 150, h: 25, y: pY, type: 'platform' });
-        } 
-        // Standard Solid
-        else {
+        } else {
             obstacles.push({ x: canvas.width, w: 45, h: Math.random() * 130 + 50, type: 'solid' });
         }
         setTimeout(spawn, Math.max(400, 1600 - (score * 18)));
@@ -100,11 +93,45 @@
         ctx.fillStyle = '#050505';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // BACKGROUND ANIMATION
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        // Background Shapes
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
         bgShapes.forEach(s => {
-            ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(s.rot);
-            if(s.type === 0) ctx.strokeRect(-s.size/2, -s.size/2, s.size, s.size);
-            else if(s.type === 1) { ctx.beginPath(); ctx.arc(0,0, s.size/2, 0, Math.PI*2); ctx.stroke(); }
-            else { ctx.beginPath(); ctx.moveTo(0, -s.size/2); ctx.lineTo(s.size/2, s.size/2); ctx.lineTo(-s.size/2, s.size/2); ctx.closePath(); ctx.stroke(); }
-            ctx.restore();
+            ctx.strokeRect(s.x, s.y, s.size, s.size);
+            if (gameActive) {
+                s.x -= s.speed;
+                if (score >= 50) {
+                    s.y += s.vY;
+                    if (s.y < 0 || s.y > canvas.height) s.vY *= -1;
+                    if (p.x < s.x + s.size && p.x + p.size > s.x && p.y < s.y + s.size && p.y + p.size > s.y) crash();
+                }
+                if (s.x < -s.size) s.x = canvas.width + s.size;
+            }
+        });
+
+        if (gameActive) {
+            p.dy += p.grav; p.y += p.dy;
+            if (p.y + p.size > canvas.height) { p.y = canvas.height - p.size; p.dy = 0; p.jumps = 3; }
+            if (p.y < 0) { p.y = 0; p.dy = 0; }
+
+            trails.push({ x: p.x, y: p.y, a: 0.4, level: p.level });
+            if (trails.length > 15) trails.shift();
+
+            obstacles.forEach((o, i) => {
+                o.x -= baseSpeed;
+                if (o.type === 'solid' && p.x < o.x + o.w && p.x + p.size > o.x && p.y + p.size > canvas.height - o.h) crash();
+                if (o.type === 'platform' && p.x < o.x + o.w && p.x + p.size > o.x && p.y + p.size > o.y && p.y + p.size < o.y + 25 && p.dy >= 0) {
+                    p.y = o.y - p.size; p.dy = 0; p.jumps = 3;
+                }
+                if (o.type === 'hollow' && p.x < o.x + o.w && p.x + p.size > o.x && (p.y < o.holeY || p.y + p.size > o.holeY + o.holeH)) crash();
+                
+                if (o.x + o.w < 0) {
+                    obstacles.splice(i, 1); score++; baseSpeed += 0.12; p.level = Math.floor(score / 5);
+                    if (score % 10 === 0) themeIdx = (themeIdx + 1) % themes.length;
+                    if (score > highScore) { highScore = score; localStorage.setItem('glitchHighScore', score); }
+                    ui.innerHTML = `SCORE: ${score} | BEST: ${highScore}`;
+                }
+            });
+        } else {
+            ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.font = "bold 40px Courier New";
+            ctx.fillText("SYSTEM CRASHED", canvas.width/2, canvas.height/2);
+            ctx.
