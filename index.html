@@ -5,10 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GLITCH DASH | Master</title>
     <style>
-        /* MOVING BACKGROUND */
         body { 
             margin: 0; 
-            /* Gradient using your game colors: Cyan and Magenta */
             background: linear-gradient(-45deg, #050505, #0a0f1a, #1a0a1a, #050505);
             background-size: 400% 400%;
             animation: gradientBG 15s ease infinite;
@@ -20,21 +18,18 @@
             align-items: center; 
             height: 100vh; 
         }
-
         @keyframes gradientBG {
             0% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
             100% { background-position: 0% 50%; }
         }
-
         canvas { 
             border: 2px solid rgba(0, 255, 255, 0.2); 
             box-shadow: 0 0 30px rgba(0,0,0,0.8); 
-            background: rgba(0, 0, 0, 0.8); 
+            background: rgba(0, 0, 0, 0.85); 
             cursor: pointer;
             border-radius: 8px;
         }
-
         .ui { 
             position: absolute; 
             top: 20px; 
@@ -51,171 +46,162 @@
     <canvas id="gameCanvas"></canvas>
 
 <script>
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const scoreEl = document.getElementById('score');
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
 
-canvas.width = 800;
-canvas.height = 400;
+    canvas.width = 800;
+    canvas.height = 400;
 
-let score = 0;
-let highScore = localStorage.getItem('highScore') || 0;
-let gameActive = true;
-let speed = 5;
-let particles = [];
+    let score = 0;
+    let highScore = localStorage.getItem('highScore') || 0;
+    let gameActive = true;
+    let speed = 5;
+    let particles = [];
+    let obstacles = [];
 
-const player = {
-    x: 50,
-    y: 350,
-    size: 30,
-    color: '#00ffff', // Neon Cyan
-    dy: 0,
-    jumpForce: 12,
-    gravity: 0.6,
-    grounded: false,
-    visible: true
-};
+    const player = {
+        x: 50,
+        y: 350,
+        size: 30,
+        color: '#00ffff',
+        dy: 0,
+        jumpForce: 12,
+        gravity: 0.6,
+        grounded: false,
+        visible: true
+    };
 
-const obstacles = [];
-
-class Particle {
-    constructor(x, y, color) {
-        this.x = x;
-        this.y = y;
-        this.size = Math.random() * 5 + 2;
-        this.speedX = (Math.random() - 0.5) * 12;
-        this.speedY = (Math.random() - 0.5) * 12;
-        this.color = color;
-        this.alpha = 1;
-    }
-    update() {
-        this.x += this.speedX;
-        this.y += this.speedY;
-        this.alpha -= 0.02;
-    }
-    draw() {
-        ctx.save();
-        ctx.globalAlpha = this.alpha;
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = this.color;
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y, this.size, this.size);
-        ctx.restore();
-    }
-}
-
-function spawnObstacle() {
-    if (!gameActive) return;
-    const height = Math.random() * 60 + 20;
-    obstacles.push({
-        x: canvas.width,
-        y: canvas.height - height,
-        w: 20,
-        h: height,
-        color: '#ff00ff' // Neon Magenta
-    });
-    setTimeout(spawnObstacle, Math.random() * 1200 + 600);
-}
-
-function update() {
-    particles.forEach((p, i) => {
-        p.update();
-        if (p.alpha <= 0) particles.splice(i, 1);
-    });
-
-    if (!gameActive) return;
-
-    player.dy += player.gravity;
-    player.y += player.dy;
-
-    if (player.y + player.size > canvas.height) {
-        player.y = canvas.height - player.size;
-        player.dy = 0;
-        player.grounded = true;
-    }
-
-    obstacles.forEach((obs, index) => {
-        obs.x -= speed;
-        if (player.x < obs.x + obs.w && player.x + player.size > obs.x &&
-            player.y < obs.y + obs.h && player.y + player.size > obs.y) {
-            explode();
-            gameOver();
+    class Particle {
+        constructor(x, y, color) {
+            this.x = x;
+            this.y = y;
+            this.size = Math.random() * 5 + 2;
+            this.speedX = (Math.random() - 0.5) * 12;
+            this.speedY = (Math.random() - 0.5) * 12;
+            this.color = color;
+            this.alpha = 1;
         }
-        if (obs.x + obs.w < 0) {
-            obstacles.splice(index, 1);
-            score++;
-            if (score > highScore) {
-                highScore = score;
-                localStorage.setItem('highScore', highScore);
+        update() {
+            this.x += this.speedX;
+            this.y += this.speedY;
+            this.alpha -= 0.02;
+        }
+        draw() {
+            ctx.save();
+            ctx.globalAlpha = this.alpha;
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x, this.y, this.size, this.size);
+            ctx.restore();
+        }
+    }
+
+    function spawnObstacle() {
+        if (!gameActive) return;
+        const height = Math.random() * 60 + 20;
+        obstacles.push({ x: canvas.width, y: canvas.height - height, w: 20, h: height, color: '#ff00ff' });
+        setTimeout(spawnObstacle, Math.random() * 1200 + 600);
+    }
+
+    function update() {
+        particles.forEach((p, i) => {
+            p.update();
+            if (p.alpha <= 0) particles.splice(i, 1);
+        });
+
+        if (!gameActive) return;
+
+        player.dy += player.gravity;
+        player.y += player.dy;
+
+        if (player.y + player.size > canvas.height) {
+            player.y = canvas.height - player.size;
+            player.dy = 0;
+            player.grounded = true;
+        }
+
+        obstacles.forEach((obs, index) => {
+            obs.x -= speed;
+            if (player.x < obs.x + obs.w && player.x + player.size > obs.x &&
+                player.y < obs.y + obs.h && player.y + player.size > obs.y) {
+                explode();
+                gameOver();
             }
-            scoreEl.innerHTML = `SCORE: ${score} | BEST: ${highScore}`;
-            if (score % 5 === 0) speed += 0.7;
+            if (obs.x + obs.w < 0) {
+                obstacles.splice(index, 1);
+                score++;
+                if (score > highScore) {
+                    highScore = score;
+                    localStorage.setItem('highScore', highScore);
+                }
+                scoreEl.innerHTML = `SCORE: ${score} | BEST: ${highScore}`;
+                if (score % 5 === 0) speed += 0.7;
+            }
+        });
+    }
+
+    function explode() {
+        for (let i = 0; i < 50; i++) {
+            particles.push(new Particle(player.x + player.size/2, player.y + player.size/2, player.color));
+        }
+    }
+
+    function gameOver() {
+        gameActive = false;
+        player.visible = false;
+        setTimeout(() => {
+            ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 50px Courier New";
+            ctx.fillText("SYSTEM CRASHED", canvas.width / 2, canvas.height / 2 - 40);
+            ctx.font = "20px Courier New";
+            ctx.fillStyle = "#00ffff";
+            ctx.fillText(`FINAL SCORE: ${score}`, canvas.width / 2, canvas.height / 2 + 30);
+            ctx.fillStyle = "#ff00ff";
+            ctx.fillText(`BEST: ${highScore}`, canvas.width / 2, canvas.height / 2 + 60);
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "15px Courier New";
+            ctx.fillText("TAP OR CLICK TO REBOOT", canvas.width / 2, canvas.height / 2 + 110);
+        }, 150);
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => p.draw());
+        if (player.visible) {
+            ctx.fillStyle = player.color;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = player.color;
+            ctx.fillRect(player.x, player.y, player.size, player.size);
+        }
+        ctx.shadowColor = '#ff00ff';
+        obstacles.forEach(obs => {
+            ctx.fillStyle = obs.color;
+            ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+        });
+        ctx.shadowBlur = 0;
+    }
+
+    function loop() {
+        update();
+        draw();
+        requestAnimationFrame(loop);
+    }
+
+    canvas.addEventListener('mousedown', () => {
+        if (!gameActive) location.reload();
+        else if (player.grounded) {
+            player.dy = -player.jumpForce;
+            player.grounded = false;
         }
     });
-}
 
-function explode() {
-    for (let i = 0; i < 50; i++) {
-        particles.push(new Particle(player.x + player.size/2, player.y + player.size/2, player.color));
-    }
-}
-
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    particles.forEach(p => p.draw());
-
-    if (player.visible) {
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = player.color;
-        ctx.fillStyle = player.color;
-        ctx.fillRect(player.x, player.y, player.size, player.size);
-    }
-
-    ctx.shadowBlur = 15;
-    ctx.shadowColor = '#ff00ff';
-    obstacles.forEach(obs => {
-        ctx.fillStyle = obs.color;
-        ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
-    });
-    ctx.shadowBlur = 0;
-}
-
-function loop() {
-    update();
-    draw();
-    requestAnimationFrame(loop);
-}
-
-function gameOver() {
-    gameActive = false;
-    player.visible = false;
-    setTimeout(() => {
-        ctx.fillStyle = "rgba(0,0,0,0.85)";
-        ctx.fillRect(0,0,canvas.width, canvas.height);
-        ctx.fillStyle = "white";
-        ctx.textAlign = "center";
-        ctx.font = "bold 40px Courier New";
-        ctx.fillText("SYSTEM CRASHED", canvas.width/2, canvas.height/2);
-        ctx.font = "20px Courier New";
-        ctx.fillText(`FINAL SCORE: ${score} | BEST: ${highScore}`, canvas.width/2, canvas.height/2 + 50);
-        ctx.fillText("CLICK TO REBOOT", canvas.width/2, canvas.height/2 + 90);
-    }, 100);
-}
-
-window.addEventListener('keydown', (e) => { if (e.code === 'Space') jump(); });
-canvas.addEventListener('mousedown', jump);
-
-function jump() {
-    if (!gameActive) { location.reload(); return; }
-    if (player.grounded) {
-        player.dy = -player.jumpForce;
-        player.grounded = false;
-    }
-}
-
-scoreEl.innerHTML = `SCORE: 0 | BEST: ${highScore}`;
-spawnObstacle();
-loop();
+    scoreEl.innerHTML = `SCORE: 0 | BEST: ${highScore}`;
+    spawnObstacle();
+    loop();
 </script>
 </body>
 </html>
