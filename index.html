@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GLITCH DASH | MEGA BOSS</title>
+    <title>GLITCH DASH | LITE</title>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; font-family: 'Courier New', monospace; }
-        canvas { display: block; }
+        body { margin: 0; background: #000; overflow: hidden; font-family: monospace; }
+        canvas { display: block; background: #050505; }
         #ui {
             position: absolute; top: 15px; left: 15px;
-            color: #0ff; font-size: 20px; font-weight: bold;
-            pointer-events: none; text-shadow: 0 0 10px #0ff; z-index: 100;
+            color: #fff; font-size: 20px; font-weight: bold;
+            pointer-events: none; z-index: 100;
         }
     </style>
 </head>
@@ -26,112 +26,129 @@
     let gameActive = true;
     let score = 0;
     let highScore = localStorage.getItem('glitchHighScore') || 0;
-    let baseSpeed = 8;
+    let speed = 8;
     let obstacles = [];
-    let bgShapes = [];
     let trails = [];
-    let shake = 0;
+    
+    // Theme colors (Solid colors - no glowing)
+    const themes = ['#00ffff', '#ff00ff', '#00ff00', '#ffff00', '#ff3300'];
     let themeIdx = 0;
-    const themes = ['#00ffff', '#ff00ff', '#00ff00', '#ffff00', '#ff3300', '#ffffff', '#7000ff'];
 
     const p = {
-        x: 100, y: 0, size: 35, dy: 0,
-        jump: -14, grav: 0.7, jumps: 3, level: 0
+        x: 80, y: 0, size: 30, dy: 0,
+        jump: -14, grav: 0.8, jumps: 3, level: 0
     };
 
     function init() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
         p.y = canvas.height - p.size;
-        bgShapes = [];
-        for(let i=0; i<15; i++) {
-            bgShapes.push({
-                x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-                size: Math.random() * 30 + 10, speed: Math.random() * 0.5 + 0.2,
-                vY: (Math.random() - 0.5) * 2
-            });
-        }
     }
     window.addEventListener('resize', init);
     init();
 
     function spawn() {
         if (!gameActive) return;
-        const rand = Math.random();
-        if (rand > 0.75) {
-            const hY = Math.random() * (canvas.height - 300) + 50;
-            obstacles.push({ x: canvas.width, w: 60, h: canvas.height, type: 'hollow', holeY: hY, holeH: 160 });
-        } else if (rand > 0.5) {
-            const pY = canvas.height - 200 - (Math.random() * 120);
-            obstacles.push({ x: canvas.width, w: 150, h: 25, y: pY, type: 'platform' });
-        } else {
-            obstacles.push({ x: canvas.width, w: 45, h: Math.random() * 130 + 50, type: 'solid' });
-        }
-        setTimeout(spawn, Math.max(400, 1600 - (score * 18)));
+        // Simple Solid Obstacles
+        obstacles.push({ 
+            x: canvas.width, 
+            w: 30, 
+            h: Math.random() * 100 + 40 
+        });
+        setTimeout(spawn, Math.max(500, 1500 - (score * 10)));
     }
 
-    function drawPlayer(x, y, size, level, color) {
-        ctx.fillStyle = color;
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 15;
-        if (level === 0) ctx.fillRect(x, y, size, size);
-        else if (level === 1) { ctx.beginPath(); ctx.roundRect(x, y, size, size, 12); ctx.fill(); }
-        else if (level === 2) { 
-            ctx.beginPath(); ctx.moveTo(x+size/2, y); ctx.lineTo(x+size, y+size/2);
-            ctx.lineTo(x+size/2, y+size); ctx.lineTo(x, y+size/2); ctx.fill();
-        } else if (level === 3) {
-            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x+size, y+size/2); ctx.lineTo(x, y+size); ctx.fill();
-        } else {
-            ctx.beginPath(); ctx.arc(x+size/2, y+size/2, size/2, 0, Math.PI*2); ctx.fill();
-        }
-    }
+    function update() {
+        if (!gameActive) return;
 
-    function loop() {
-        ctx.save();
-        if (shake > 0) { ctx.translate((Math.random()-0.5)*shake, (Math.random()-0.5)*shake); shake--; }
+        p.dy += p.grav;
+        p.y += p.dy;
+
+        // Ground Logic
+        if (p.y + p.size > canvas.height) {
+            p.y = canvas.height - p.size;
+            p.dy = 0;
+            p.jumps = 3;
+        }
         
+        // Simple trail logic
+        trails.push({ x: p.x, y: p.y, a: 0.4 });
+        if (trails.length > 5) trails.shift();
+
+        obstacles.forEach((o, i) => {
+            o.x -= speed;
+            
+            // Collision
+            if (p.x < o.x + o.w && p.x + p.size > o.x && p.y + p.size > canvas.height - o.h) {
+                gameActive = false;
+                setTimeout(() => location.reload(), 1000);
+            }
+
+            // Score
+            if (o.x + o.w < 0) {
+                obstacles.splice(i, 1);
+                score++;
+                speed += 0.1;
+                p.level = Math.floor(score / 5);
+                if (score % 10 === 0) themeIdx = (themeIdx + 1) % themes.length;
+                if (score > highScore) {
+                    highScore = score;
+                    localStorage.setItem('glitchHighScore', score);
+                }
+                ui.innerHTML = `SCORE: ${score} | BEST: ${highScore}`;
+            }
+        });
+    }
+
+    function draw() {
+        // Clear screen with basic color (no effects)
         ctx.fillStyle = '#050505';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Background Shapes
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-        bgShapes.forEach(s => {
-            ctx.strokeRect(s.x, s.y, s.size, s.size);
-            if (gameActive) {
-                s.x -= s.speed;
-                if (score >= 50) {
-                    s.y += s.vY;
-                    if (s.y < 0 || s.y > canvas.height) s.vY *= -1;
-                    if (p.x < s.x + s.size && p.x + p.size > s.x && p.y < s.y + s.size && p.y + p.size > s.y) crash();
-                }
-                if (s.x < -s.size) s.x = canvas.width + s.size;
-            }
+        // Draw Trails (Transparent boxes)
+        trails.forEach(t => {
+            ctx.globalAlpha = t.a;
+            ctx.fillStyle = themes[themeIdx];
+            ctx.fillRect(t.x, t.y, p.size, p.size);
+        });
+        ctx.globalAlpha = 1;
+
+        // Draw Player (Solid box)
+        if (gameActive) {
+            ctx.fillStyle = themes[themeIdx];
+            ctx.fillRect(p.x, p.y, p.size, p.size);
+        } else {
+            ctx.fillStyle = "white";
+            ctx.textAlign = "center";
+            ctx.font = "30px Arial";
+            ctx.fillText("CRASHED", canvas.width/2, canvas.height/2);
+        }
+
+        // Draw Obstacles (Solid box)
+        ctx.fillStyle = "#ff0066";
+        obstacles.forEach(o => {
+            ctx.fillRect(o.x, canvas.height - o.h, o.w, o.h);
         });
 
-        if (gameActive) {
-            p.dy += p.grav; p.y += p.dy;
-            if (p.y + p.size > canvas.height) { p.y = canvas.height - p.size; p.dy = 0; p.jumps = 3; }
-            if (p.y < 0) { p.y = 0; p.dy = 0; }
+        update();
+        requestAnimationFrame(draw);
+    }
 
-            trails.push({ x: p.x, y: p.y, a: 0.4, level: p.level });
-            if (trails.length > 15) trails.shift();
+    function handleInput() {
+        if (!gameActive) return;
+        if (p.jumps > 0) {
+            p.dy = p.jump;
+            p.jumps--;
+        }
+    }
 
-            obstacles.forEach((o, i) => {
-                o.x -= baseSpeed;
-                if (o.type === 'solid' && p.x < o.x + o.w && p.x + p.size > o.x && p.y + p.size > canvas.height - o.h) crash();
-                if (o.type === 'platform' && p.x < o.x + o.w && p.x + p.size > o.x && p.y + p.size > o.y && p.y + p.size < o.y + 25 && p.dy >= 0) {
-                    p.y = o.y - p.size; p.dy = 0; p.jumps = 3;
-                }
-                if (o.type === 'hollow' && p.x < o.x + o.w && p.x + p.size > o.x && (p.y < o.holeY || p.y + p.size > o.holeY + o.holeH)) crash();
-                
-                if (o.x + o.w < 0) {
-                    obstacles.splice(i, 1); score++; baseSpeed += 0.12; p.level = Math.floor(score / 5);
-                    if (score % 10 === 0) themeIdx = (themeIdx + 1) % themes.length;
-                    if (score > highScore) { highScore = score; localStorage.setItem('glitchHighScore', score); }
-                    ui.innerHTML = `SCORE: ${score} | BEST: ${highScore}`;
-                }
-            });
-        } else {
-            ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.font = "bold 40px Courier New";
-            ctx.fillText("SYSTEM CRASHED", canvas.width/2, canvas.height/2);
-            ctx.
+    window.addEventListener('keydown', (e) => { if(e.code === 'Space') handleInput(); });
+    window.addEventListener('mousedown', handleInput);
+    window.addEventListener('touchstart', (e) => { e.preventDefault(); handleInput(); });
+
+    ui.innerHTML = `SCORE: 0 | BEST: ${highScore}`;
+    spawn();
+    draw();
+</script>
+</body>
+</html>
