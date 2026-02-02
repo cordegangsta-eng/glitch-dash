@@ -3,31 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GLITCH DASH | ULTRA FIX</title>
+    <title>GLITCH DASH | MEGA BOSS</title>
     <style>
         body { margin: 0; background: #000; overflow: hidden; font-family: 'Courier New', monospace; }
-        canvas { display: block; background: #050505; }
+        canvas { display: block; cursor: pointer; }
         #ui {
             position: absolute; top: 15px; left: 15px;
             color: #0ff; font-size: 20px; font-weight: bold;
             pointer-events: none; text-shadow: 0 0 10px #0ff; z-index: 100;
         }
-        #msg {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            color: white; text-align: center; pointer-events: none;
-        }
     </style>
 </head>
 <body>
     <div id="ui">SCORE: 0 | BEST: 0</div>
-    <div id="msg">CLICK TO START</div>
     <canvas id="gameCanvas"></canvas>
 
 <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const ui = document.getElementById('ui');
-    const msg = document.getElementById('msg');
 
     let gameActive = false;
     let score = 0;
@@ -49,14 +43,15 @@
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
         p.y = canvas.height - p.size;
-        if (bgShapes.length === 0) {
-            for(let i=0; i<15; i++) {
-                bgShapes.push({
-                    x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-                    size: Math.random() * 40 + 20, speed: Math.random() * 0.5 + 0.2,
-                    type: Math.floor(Math.random() * 3), rot: Math.random() * Math.PI
-                });
-            }
+        // Build floating shapes
+        bgShapes = [];
+        for(let i=0; i<20; i++) {
+            bgShapes.push({
+                x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+                size: Math.random() * 40 + 20, speed: Math.random() * 0.5 + 0.2,
+                type: Math.floor(Math.random() * 3), rot: Math.random() * Math.PI,
+                vY: (Math.random() - 0.5) * 2 // Vertical movement for Boss Level
+            });
         }
     }
     window.addEventListener('resize', init);
@@ -65,16 +60,21 @@
     function spawn() {
         if (!gameActive) return;
         const rand = Math.random();
-        if (rand > 0.7) {
-            const hY = Math.random() * (canvas.height - 250) + 50;
-            obstacles.push({ x: canvas.width, w: 50, h: canvas.height, type: 'hollow', holeY: hY, holeH: 140 });
-        } else if (rand > 0.45) {
-            const pY = canvas.height - 180 - (Math.random() * 100);
-            obstacles.push({ x: canvas.width, w: 130, h: 20, y: pY, type: 'platform' });
-        } else {
-            obstacles.push({ x: canvas.width, w: 40, h: Math.random() * 120 + 40, type: 'solid' });
+        // Hollow Wall
+        if (rand > 0.75) {
+            const hY = Math.random() * (canvas.height - 280) + 50;
+            obstacles.push({ x: canvas.width, w: 60, h: canvas.height, type: 'hollow', holeY: hY, holeH: 150 });
+        } 
+        // Platform
+        else if (rand > 0.5) {
+            const pY = canvas.height - 200 - (Math.random() * 120);
+            obstacles.push({ x: canvas.width, w: 150, h: 25, y: pY, type: 'platform' });
+        } 
+        // Standard Solid
+        else {
+            obstacles.push({ x: canvas.width, w: 45, h: Math.random() * 130 + 50, type: 'solid' });
         }
-        setTimeout(spawn, Math.max(450, 1500 - (score * 15)));
+        setTimeout(spawn, Math.max(400, 1600 - (score * 18)));
     }
 
     function drawPlayer(x, y, size, level, color) {
@@ -82,7 +82,7 @@
         ctx.shadowColor = color;
         ctx.shadowBlur = 15;
         if (level === 0) ctx.fillRect(x, y, size, size);
-        else if (level === 1) { ctx.beginPath(); ctx.roundRect(x, y, size, size, 10); ctx.fill(); }
+        else if (level === 1) { ctx.beginPath(); ctx.roundRect(x, y, size, size, 12); ctx.fill(); }
         else if (level === 2) { 
             ctx.beginPath(); ctx.moveTo(x+size/2, y); ctx.lineTo(x+size, y+size/2);
             ctx.lineTo(x+size/2, y+size); ctx.lineTo(x, y+size/2); ctx.fill();
@@ -100,28 +100,11 @@
         ctx.fillStyle = '#050505';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // BG
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        // BACKGROUND ANIMATION
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
         bgShapes.forEach(s => {
             ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(s.rot);
             if(s.type === 0) ctx.strokeRect(-s.size/2, -s.size/2, s.size, s.size);
-            else { ctx.beginPath(); ctx.arc(0,0, s.size/2, 0, Math.PI*2); ctx.stroke(); }
+            else if(s.type === 1) { ctx.beginPath(); ctx.arc(0,0, s.size/2, 0, Math.PI*2); ctx.stroke(); }
+            else { ctx.beginPath(); ctx.moveTo(0, -s.size/2); ctx.lineTo(s.size/2, s.size/2); ctx.lineTo(-s.size/2, s.size/2); ctx.closePath(); ctx.stroke(); }
             ctx.restore();
-            if (gameActive) { s.x -= s.speed; s.rot += 0.01; if (s.x < -s.size) s.x = canvas.width + s.size; }
-        });
-
-        if (gameActive) {
-            p.dy += p.grav; p.y += p.dy;
-            if (p.y + p.size > canvas.height) { p.y = canvas.height - p.size; p.dy = 0; p.jumps = 3; }
-            if (p.y < 0) { p.y = 0; p.dy = 0; }
-
-            trails.push({ x: p.x, y: p.y, a: 0.4, level: p.level });
-            if (trails.length > 12) trails.shift();
-
-            obstacles.forEach((o, i) => {
-                o.x -= baseSpeed;
-                if (o.type === 'solid' && p.x < o.x + o.w && p.x + p.size > o.x && p.y + p.size > canvas.height - o.h) crash();
-                if (o.type === 'platform' && p.x < o.x + o.w && p.x + p.size > o.x && p.y + p.size > o.y && p.y + p.size < o.y + 25 && p.dy >= 0) {
-                    p.y = o.y - p.size; p.dy = 0; p.jumps = 3;
-                }
-                if (o.type === 'hollow' && p.x
