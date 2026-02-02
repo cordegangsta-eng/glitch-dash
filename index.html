@@ -1,9 +1,9 @@
-=<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GLITCH DASH | HOLLOW</title>
+    <title>GLITCH DASH | BALANCED</title>
     <style>
         body { margin: 0; background: #000; overflow: hidden; font-family: monospace; }
         canvas { display: block; background: #050505; }
@@ -28,20 +28,31 @@
     let highScore = localStorage.getItem('glitchHighScore') || 0;
     let speed = 8;
     let obstacles = [];
-    let trails = [];
+    let bgLines = [];
     
     const themes = ['#00ffff', '#ff00ff', '#00ff00', '#ffff00', '#ff3300'];
     let themeIdx = 0;
 
     const p = {
         x: 80, y: 0, size: 30, dy: 0,
-        jump: -14, grav: 0.8, jumps: 3
+        jump: -13, grav: 0.7, jumps: 3
     };
 
     function init() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
         p.y = canvas.height - p.size;
+        
+        // Setup simple background lines (Performance friendly)
+        bgLines = [];
+        for(let i=0; i<10; i++) {
+            bgLines.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                w: Math.random() * 100 + 50,
+                s: Math.random() * 2 + 1
+            });
+        }
     }
     window.addEventListener('resize', init);
     init();
@@ -51,22 +62,17 @@
 
         const rand = Math.random();
         if (rand > 0.6) {
-            // BIG HOLLOW WALL
-            const holeHeight = 160; 
-            const holeY = Math.random() * (canvas.height - holeHeight - 100) + 50;
-            obstacles.push({ 
-                x: canvas.width, w: 50, type: 'hollow', 
-                hY: holeY, hH: holeHeight 
-            });
+            // BIG HOLLOW WALL - Made the hole bigger (180px) so it's fair
+            const holeH = 180; 
+            const holeY = Math.random() * (canvas.height - holeH - 120) + 60;
+            obstacles.push({ x: canvas.width, w: 50, type: 'hollow', hY: holeY, hH: holeH });
         } else {
-            // STANDARD BLOCK
-            obstacles.push({ 
-                x: canvas.width, w: 35, 
-                h: Math.random() * 120 + 40, type: 'solid' 
-            });
+            // SOLID BLOCK - Capped height at 60% of screen so it's never "too tall"
+            const maxH = canvas.height * 0.6;
+            obstacles.push({ x: canvas.width, w: 35, h: Math.min(Math.random() * 150 + 50, maxH), type: 'solid' });
         }
         
-        setTimeout(spawn, Math.max(450, 1500 - (score * 12)));
+        setTimeout(spawn, Math.max(450, 1600 - (score * 12)));
     }
 
     function update() {
@@ -82,17 +88,18 @@
         }
         if (p.y < 0) { p.y = 0; p.dy = 0; }
 
-        trails.push({ x: p.x, y: p.y, a: 0.3 });
-        if (trails.length > 6) trails.shift();
+        // Update BG Lines
+        bgLines.forEach(l => {
+            l.x -= l.s;
+            if (l.x + l.w < 0) l.x = canvas.width;
+        });
 
         obstacles.forEach((o, i) => {
             o.x -= speed;
             
-            // Collision Detection
             if (o.type === 'solid') {
                 if (p.x < o.x + o.w && p.x + p.size > o.x && p.y + p.size > canvas.height - o.h) crash();
             } else {
-                // Hollow Wall Collision (Hit top or bottom, miss the hole)
                 if (p.x < o.x + o.w && p.x + p.size > o.x) {
                     if (p.y < o.hY || p.y + p.size > o.hY + o.hH) crash();
                 }
@@ -101,7 +108,7 @@
             if (o.x + o.w < 0) {
                 obstacles.splice(i, 1);
                 score++;
-                speed += 0.12;
+                speed += 0.1;
                 if (score % 10 === 0) themeIdx = (themeIdx + 1) % themes.length;
                 if (score > highScore) {
                     highScore = score;
@@ -114,20 +121,16 @@
 
     function crash() {
         gameActive = false;
-        setTimeout(() => location.reload(), 1000);
+        setTimeout(() => location.reload(), 800);
     }
 
     function draw() {
         ctx.fillStyle = '#050505';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Trails
-        trails.forEach(t => {
-            ctx.globalAlpha = t.a;
-            ctx.fillStyle = themes[themeIdx];
-            ctx.fillRect(t.x, t.y, p.size, p.size);
-        });
-        ctx.globalAlpha = 1;
+        // Draw Background Lines
+        ctx.fillStyle = 'rgba(255,255,255,0.05)';
+        bgLines.forEach(l => ctx.fillRect(l.x, l.y, l.w, 2));
 
         // Player
         if (gameActive) {
@@ -141,9 +144,7 @@
             if (o.type === 'solid') {
                 ctx.fillRect(o.x, canvas.height - o.h, o.w, o.h);
             } else {
-                // Draw Top Half
                 ctx.fillRect(o.x, 0, o.w, o.hY);
-                // Draw Bottom Half
                 ctx.fillRect(o.x, o.hY + o.hH, o.w, canvas.height);
             }
         });
