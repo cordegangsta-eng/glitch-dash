@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GLITCH DASH | GOLD MASTER</title>
+    <title>GLITCH DASH | FULL SCREEN</title>
     <style>
         body { 
             margin: 0; 
@@ -13,11 +13,9 @@
             color: #fff; 
             font-family: 'Courier New', monospace; 
             overflow: hidden; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
             height: 100vh; 
-            user-select: none; /* Prevents highlighting text while clicking */
+            width: 100vw;
+            user-select: none;
         }
         @keyframes gradientBG {
             0% { background-position: 0% 50%; }
@@ -25,25 +23,25 @@
             100% { background-position: 0% 50%; }
         }
         canvas { 
-            border: 2px solid rgba(0, 255, 255, 0.3); 
-            box-shadow: 0 0 40px rgba(0,0,0,0.9); 
-            background: rgba(0, 0, 0, 0.85); 
+            display: block; /* Removes any scrollbars */
+            background: rgba(0, 0, 0, 0.0); /* Transparent so gradient shows through */
             cursor: pointer;
-            border-radius: 10px;
         }
         .ui { 
             position: absolute; 
-            top: 20px; 
-            left: 20px; 
+            top: 30px; 
+            left: 30px; 
             pointer-events: none; 
             text-shadow: 0 0 10px rgba(0,255,255,0.8);
             z-index: 10;
+            font-size: 24px;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
     <div class="ui">
-        <h1 id="score">SCORE: 0 | BEST: 0</h1>
+        <span id="score">SCORE: 0 | BEST: 0</span>
     </div>
     <canvas id="gameCanvas"></canvas>
 
@@ -52,24 +50,90 @@
     const ctx = canvas.getContext('2d');
     const scoreEl = document.getElementById('score');
 
-    // Set canvas size
-    canvas.width = 800;
-    canvas.height = 400;
+    // INITIAL FULL SCREEN SETUP
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
 
     // Game Variables
     let score = 0;
     let highScore = localStorage.getItem('glitchHighScore') || 0;
     let gameActive = true;
-    let speed = 6;
-    let animationId; // Used to stop the loop correctly
-
+    let canRestart = false; 
+    let speed = 7; // Faster speed for wider screens
+    
     // Game Objects
     let particles = [];
     let obstacles = [];
     
     const player = {
-        x: 60,
-        y: 350,
+        x: 100, // Player stays 100px from the left
+        y: 0,   // Will be set automatically by gravity
         size: 30,
         color: '#00ffff',
-        dy
+        dy: 0,
+        jumpForce: 13,
+        gravity: 0.7,
+        grounded: false,
+        visible: true
+    };
+
+    // Initialize player y position
+    player.y = canvas.height - player.size;
+
+    class Particle {
+        constructor(x, y, color) {
+            this.x = x;
+            this.y = y;
+            this.size = Math.random() * 6 + 2;
+            this.speedX = (Math.random() - 0.5) * 15;
+            this.speedY = (Math.random() - 0.5) * 15;
+            this.color = color;
+            this.alpha = 1;
+        }
+        update() {
+            this.x += this.speedX;
+            this.y += this.speedY;
+            this.alpha -= 0.02;
+        }
+        draw() {
+            ctx.save();
+            ctx.globalAlpha = this.alpha;
+            ctx.fillStyle = this.color;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = this.color;
+            ctx.fillRect(this.x, this.y, this.size, this.size);
+            ctx.restore();
+        }
+    }
+
+    function spawnObstacle() {
+        if (!gameActive) return;
+        const height = Math.random() * 80 + 30; // Taller obstacles for bigger screens
+        obstacles.push({ 
+            x: canvas.width, 
+            y: canvas.height - height, 
+            w: 30, 
+            h: height, 
+            color: '#ff00ff' 
+        });
+        
+        let spawnRate = Math.max(600, (Math.random() * 1200 + 600) - (score * 5));
+        setTimeout(spawnObstacle, spawnRate);
+    }
+
+    function update() {
+        particles.forEach((p, i) => {
+            p.update();
+            if (p.alpha <= 0) particles.splice(i, 1);
+        });
+
+        if (!gameActive) return;
+
+        player.dy += player.gravity;
+        player.y += player.dy;
+
+        //
