@@ -3,148 +3,99 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GLITCH DASH | Master Edition</title>
+    <title>GLITCH DASH | Master</title>
     <style>
-        body, html { 
-            margin: 0; padding: 0; width: 100%; height: 100%; 
-            overflow: hidden; background: #000;
-            font-family: 'Courier New', monospace;
-        }
-        canvas { display: block; cursor: crosshair; }
-        #ui {
-            position: absolute; top: 20px; left: 20px;
-            color: #0ff; z-index: 10; pointer-events: none;
-            text-shadow: 0 0 10px #0ff;
-        }
-        .overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; flex-direction: column; justify-content: center;
-            align-items: center; background: rgba(0,0,0,0.8);
-            color: white; z-index: 20; text-align: center;
+        body { margin: 0; background: #050505; overflow: hidden; font-family: sans-serif; }
+        canvas { display: block; }
+        #scoreUI {
+            position: absolute; top: 10px; left: 10px;
+            color: #00ffff; font-family: monospace; font-size: 20px;
+            pointer-events: none; text-shadow: 0 0 8px #00ffff;
         }
     </style>
 </head>
 <body>
-    <div id="ui">SCORE: 0 | BEST: 0</div>
-    
-    <div id="startScreen" class="overlay">
-        <h1 style="font-size: 50px; color: #0ff; margin-bottom: 10px;">GLITCH DASH</h1>
-        <p style="font-size: 20px;">CLICK OR PRESS SPACE TO START</p>
-    </div>
-
+    <div id="scoreUI">SCORE: 0 | BEST: 0</div>
     <canvas id="gameCanvas"></canvas>
 
 <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
-    const ui = document.getElementById('ui');
-    const startScreen = document.getElementById('startScreen');
+    const scoreUI = document.getElementById('scoreUI');
 
-    let gameStarted = false;
-    let gameActive = false;
-    let score = 0;
-    let highScore = localStorage.getItem('glitchHighScore') || 0;
-    let speed = 7;
-    let particles = [];
-    let obstacles = [];
-
-    function resize() {
+    // Force full screen sizing
+    function init() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
     }
-    window.addEventListener('resize', resize);
-    resize();
+    window.addEventListener('resize', init);
+    init();
+
+    let score = 0;
+    let highScore = localStorage.getItem('glitchHighScore') || 0;
+    let gameActive = true;
+    let speed = 7;
+    let obstacles = [];
+    let particles = [];
 
     const player = {
         x: 80,
-        y: 0,
+        y: canvas.height - 100,
         size: 30,
-        color: '#00ffff',
         dy: 0,
-        jumpForce: 15,
+        jump: -15,
         gravity: 0.8,
         grounded: false
     };
 
-    class Particle {
-        constructor(x, y, color) {
-            this.x = x; this.y = y;
-            this.size = Math.random() * 5 + 2;
-            this.speedX = (Math.random() - 0.5) * 12;
-            this.speedY = (Math.random() - 0.5) * 12;
-            this.color = color;
-            this.alpha = 1;
-        }
-        update() { this.x += this.speedX; this.y += this.speedY; this.alpha -= 0.02; }
-        draw() {
-            ctx.globalAlpha = this.alpha;
-            ctx.fillStyle = this.color;
-            ctx.fillRect(this.x, this.y, this.size, this.size);
-            ctx.globalAlpha = 1;
-        }
-    }
-
-    function spawnObstacle() {
+    function spawn() {
         if (!gameActive) return;
-        const h = Math.random() * 70 + 30;
-        obstacles.push({ x: canvas.width, w: 30, h: h, color: '#f0f' });
-        setTimeout(spawnObstacle, Math.max(500, 1400 - (score * 15)));
-    }
-
-    function resetGame() {
-        score = 0;
-        speed = 7;
-        obstacles = [];
-        particles = [];
-        player.y = canvas.height - 100;
-        player.dy = 0;
-        gameActive = true;
-        startScreen.style.display = 'none';
-        ui.innerHTML = `SCORE: 0 | BEST: ${highScore}`;
-        spawnObstacle();
+        const h = Math.random() * 80 + 20;
+        obstacles.push({ x: canvas.width, w: 30, h: h });
+        setTimeout(spawn, Math.max(500, 1500 - (score * 10)));
     }
 
     function update() {
-        if (!gameActive) {
-            particles.forEach((p, i) => {
-                p.update();
-                if (p.alpha <= 0) particles.splice(i, 1);
-            });
-            return;
-        }
+        if (gameActive) {
+            player.dy += player.gravity;
+            player.y += player.dy;
 
-        player.dy += player.gravity;
-        player.y += player.dy;
+            if (player.y + player.size > canvas.height) {
+                player.y = canvas.height - player.size;
+                player.dy = 0;
+                player.grounded = true;
+            }
 
-        if (player.y + player.size > canvas.height) {
-            player.y = canvas.height - player.size;
-            player.dy = 0;
-            player.grounded = true;
-        }
-
-        obstacles.forEach((obs, i) => {
-            obs.x -= speed;
-            // Collision
-            if (player.x < obs.x + obs.w && player.x + player.size > obs.x &&
-                player.y > canvas.height - obs.h) {
-                gameActive = false;
-                for(let i=0; i<40; i++) particles.push(new Particle(player.x, player.y, player.color));
-                if (score > highScore) {
-                    highScore = score;
-                    localStorage.setItem('glitchHighScore', highScore);
+            obstacles.forEach((o, i) => {
+                o.x -= speed;
+                // Collision check
+                if (player.x < o.x + o.w && player.x + player.size > o.x && 
+                    player.y + player.size > canvas.height - o.h) {
+                    gameActive = false;
+                    for(let j=0; j<30; j++) {
+                        particles.push({
+                            x: player.x, y: player.y,
+                            sx: (Math.random()-0.5)*10, sy: (Math.random()-0.5)*10,
+                            a: 1
+                        });
+                    }
                 }
-                setTimeout(() => { 
-                    startScreen.style.display = 'flex';
-                    startScreen.innerHTML = `<h1>CRASHED</h1><p>SCORE: ${score}</p><p>CLICK TO REBOOT</p>`;
-                }, 1000);
-            }
-            // Score
-            if (obs.x + obs.w < 0) {
-                obstacles.splice(i, 1);
-                score++;
-                speed += 0.1;
-                ui.innerHTML = `SCORE: ${score} | BEST: ${highScore}`;
-            }
+                if (o.x + o.w < 0) {
+                    obstacles.splice(i, 1);
+                    score++;
+                    speed += 0.1;
+                    if(score > highScore) {
+                        highScore = score;
+                        localStorage.setItem('glitchHighScore', highScore);
+                    }
+                    scoreUI.innerText = `SCORE: ${score} | BEST: ${highScore}`;
+                }
+            });
+        }
+        
+        particles.forEach((p, i) => {
+            p.x += p.sx; p.y += p.sy; p.a -= 0.02;
+            if(p.a <= 0) particles.splice(i, 1);
         });
     }
 
@@ -152,26 +103,53 @@
         ctx.fillStyle = '#050505';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Draw Player
         if (gameActive) {
+            ctx.fillStyle = '#00ffff';
             ctx.shadowBlur = 15;
-            ctx.shadowColor = player.color;
-            ctx.fillStyle = player.color;
+            ctx.shadowColor = '#00ffff';
             ctx.fillRect(player.x, player.y, player.size, player.size);
         }
 
-        // Draw Obstacles
-        ctx.shadowColor = '#f0f';
-        obstacles.forEach(obs => {
-            ctx.fillStyle = obs.color;
-            ctx.fillRect(obs.x, canvas.height - obs.h, obs.w, obs.h);
-        });
+        ctx.fillStyle = '#ff00ff';
+        ctx.shadowColor = '#ff00ff';
+        obstacles.forEach(o => ctx.fillRect(o.x, canvas.height - o.h, o.w, o.h));
 
-        // Draw Particles
         ctx.shadowBlur = 0;
-        particles.forEach(p => p.draw());
+        particles.forEach(p => {
+            ctx.globalAlpha = p.a;
+            ctx.fillStyle = '#00ffff';
+            ctx.fillRect(p.x, p.y, 5, 5);
+        });
+        ctx.globalAlpha = 1;
 
+        if (!gameActive) {
+            ctx.fillStyle = 'rgba(0,0,0,0.8)';
+            ctx.fillRect(0,0,canvas.width, canvas.height);
+            ctx.fillStyle = 'white';
+            ctx.textAlign = 'center';
+            ctx.font = '40px monospace';
+            ctx.fillText('CRASHED', canvas.width/2, canvas.height/2);
+            ctx.font = '20px monospace';
+            ctx.fillText('CLICK OR SPACE TO REBOOT', canvas.width/2, canvas.height/2 + 50);
+        }
         requestAnimationFrame(() => { update(); draw(); });
     }
 
-    function handleInput() {
+    function input() {
+        if (!gameActive) location.reload();
+        else if (player.grounded) {
+            player.dy = player.jump;
+            player.grounded = false;
+        }
+    }
+
+    window.addEventListener('keydown', (e) => { if(e.code === 'Space') input(); });
+    window.addEventListener('mousedown', input);
+    window.addEventListener('touchstart', (e) => { e.preventDefault(); input(); });
+
+    scoreUI.innerText = `SCORE: 0 | BEST: ${highScore}`;
+    spawn();
+    draw();
+</script>
+</body>
+</html>
