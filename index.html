@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GLITCH DASH | UNLIMITED</title>
+    <title>GLITCH DASH | SECRET</title>
     <style>
         body { margin: 0; background: #000; overflow: hidden; font-family: monospace; }
         canvas { display: block; background: #050505; }
@@ -28,7 +28,7 @@
     let highScore = localStorage.getItem('glitchHighScore') || 0;
     let speed = 8;
     let obstacles = [];
-    let spawnCount = 0; // Tracks which obstacle number is spawning
+    let spawnCount = 0; 
     
     const themes = ['#00ffff', '#ff00ff', '#00ff00', '#ffff00', '#ff3300'];
     let themeIdx = 0;
@@ -50,23 +50,19 @@
         if (!gameActive) return;
         spawnCount++;
         
-        // Specific Spawning Logic: 4th, 7th, 12th, or 20th are Hollow
+        // Pattern: 4, 7, 12, 20 are Hollow
         const isHollow = [4, 7, 12, 20].includes(spawnCount);
         
         if (isHollow) {
             const holeH = 200; 
             const holeY = Math.random() * (canvas.height - holeH - 100) + 50;
             obstacles.push({ x: canvas.width, w: 60, type: 'hollow', hY: holeY, hH: holeH });
-            
-            // Reset counter after 20 to loop the pattern
             if (spawnCount >= 20) spawnCount = 0; 
         } else {
-            // Standard blocks for everything else
-            const maxH = canvas.height * 0.5;
             obstacles.push({ x: canvas.width, w: 35, h: Math.random() * 120 + 50, type: 'solid' });
         }
         
-        setTimeout(spawn, Math.max(450, 1600 - (score * 10)));
+        setTimeout(spawn, Math.max(400, 1600 - (score * 10)));
     }
 
     function update() {
@@ -75,21 +71,27 @@
         p.dy += p.grav;
         p.y += p.dy;
 
-        // Ground/Ceiling bounds
+        // Ground bounds
         if (p.y + p.size > canvas.height) {
             p.y = canvas.height - p.size;
             p.dy = 0;
         }
-        if (p.y < 0) { p.y = 0; p.dy = 0; }
+
+        // SECRET: Top bound removed! 
+        // You can fly above y = 0 and stay there to avoid all obstacles.
 
         obstacles.forEach((o, i) => {
             o.x -= speed;
             
-            if (o.type === 'solid') {
-                if (p.x < o.x + o.w && p.x + p.size > o.x && p.y + p.size > canvas.height - o.h) crash();
-            } else {
-                if (p.x < o.x + o.w && p.x + p.size > o.x) {
-                    if (p.y < o.hY || p.y + p.size > o.hY + o.hH) crash();
+            // Only check collision if player is actually visible on screen
+            // If p.y < -p.size, you are in the "Safe Zone"
+            if (p.y + p.size > 0) {
+                if (o.type === 'solid') {
+                    if (p.x < o.x + o.w && p.x + p.size > o.x && p.y + p.size > canvas.height - o.h) crash();
+                } else {
+                    if (p.x < o.x + o.w && p.x + p.size > o.x) {
+                        if (p.y < o.hY || p.y + p.size > o.hY + o.hH) crash();
+                    }
                 }
             }
 
@@ -116,7 +118,7 @@
         ctx.fillStyle = '#050505';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Player (Classic Square)
+        // Player
         if (gameActive) {
             ctx.fillStyle = themes[themeIdx];
             ctx.fillRect(p.x, p.y, p.size, p.size);
@@ -139,8 +141,7 @@
 
     function handleInput() {
         if (!gameActive) return;
-        // UNLIMITED JUMP: No jump counter check
-        p.dy = p.jump;
+        p.dy = p.jump; // Unlimited Jump
     }
 
     window.addEventListener('keydown', (e) => { if(e.code === 'Space') handleInput(); });
