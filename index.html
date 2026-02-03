@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GLITCH DASH | BALANCED</title>
+    <title>GLITCH DASH | UNLIMITED</title>
     <style>
         body { margin: 0; background: #000; overflow: hidden; font-family: monospace; }
         canvas { display: block; background: #050505; }
@@ -28,51 +28,45 @@
     let highScore = localStorage.getItem('glitchHighScore') || 0;
     let speed = 8;
     let obstacles = [];
-    let bgLines = [];
+    let spawnCount = 0; // Tracks which obstacle number is spawning
     
     const themes = ['#00ffff', '#ff00ff', '#00ff00', '#ffff00', '#ff3300'];
     let themeIdx = 0;
 
     const p = {
         x: 80, y: 0, size: 30, dy: 0,
-        jump: -13, grav: 0.7, jumps: 3
+        jump: -12, grav: 0.7
     };
 
     function init() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
         p.y = canvas.height - p.size;
-        
-        // Setup simple background lines (Performance friendly)
-        bgLines = [];
-        for(let i=0; i<10; i++) {
-            bgLines.push({
-                x: Math.random() * canvas.width,
-                y: Math.random() * canvas.height,
-                w: Math.random() * 100 + 50,
-                s: Math.random() * 2 + 1
-            });
-        }
     }
     window.addEventListener('resize', init);
     init();
 
     function spawn() {
         if (!gameActive) return;
-
-        const rand = Math.random();
-        if (rand > 0.6) {
-            // BIG HOLLOW WALL - Made the hole bigger (180px) so it's fair
-            const holeH = 180; 
-            const holeY = Math.random() * (canvas.height - holeH - 120) + 60;
-            obstacles.push({ x: canvas.width, w: 50, type: 'hollow', hY: holeY, hH: holeH });
+        spawnCount++;
+        
+        // Specific Spawning Logic: 4th, 7th, 12th, or 20th are Hollow
+        const isHollow = [4, 7, 12, 20].includes(spawnCount);
+        
+        if (isHollow) {
+            const holeH = 200; 
+            const holeY = Math.random() * (canvas.height - holeH - 100) + 50;
+            obstacles.push({ x: canvas.width, w: 60, type: 'hollow', hY: holeY, hH: holeH });
+            
+            // Reset counter after 20 to loop the pattern
+            if (spawnCount >= 20) spawnCount = 0; 
         } else {
-            // SOLID BLOCK - Capped height at 60% of screen so it's never "too tall"
-            const maxH = canvas.height * 0.6;
-            obstacles.push({ x: canvas.width, w: 35, h: Math.min(Math.random() * 150 + 50, maxH), type: 'solid' });
+            // Standard blocks for everything else
+            const maxH = canvas.height * 0.5;
+            obstacles.push({ x: canvas.width, w: 35, h: Math.random() * 120 + 50, type: 'solid' });
         }
         
-        setTimeout(spawn, Math.max(450, 1600 - (score * 12)));
+        setTimeout(spawn, Math.max(450, 1600 - (score * 10)));
     }
 
     function update() {
@@ -81,18 +75,12 @@
         p.dy += p.grav;
         p.y += p.dy;
 
+        // Ground/Ceiling bounds
         if (p.y + p.size > canvas.height) {
             p.y = canvas.height - p.size;
             p.dy = 0;
-            p.jumps = 3;
         }
         if (p.y < 0) { p.y = 0; p.dy = 0; }
-
-        // Update BG Lines
-        bgLines.forEach(l => {
-            l.x -= l.s;
-            if (l.x + l.w < 0) l.x = canvas.width;
-        });
 
         obstacles.forEach((o, i) => {
             o.x -= speed;
@@ -128,11 +116,7 @@
         ctx.fillStyle = '#050505';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Draw Background Lines
-        ctx.fillStyle = 'rgba(255,255,255,0.05)';
-        bgLines.forEach(l => ctx.fillRect(l.x, l.y, l.w, 2));
-
-        // Player
+        // Player (Classic Square)
         if (gameActive) {
             ctx.fillStyle = themes[themeIdx];
             ctx.fillRect(p.x, p.y, p.size, p.size);
@@ -155,10 +139,8 @@
 
     function handleInput() {
         if (!gameActive) return;
-        if (p.jumps > 0) {
-            p.dy = p.jump;
-            p.jumps--;
-        }
+        // UNLIMITED JUMP: No jump counter check
+        p.dy = p.jump;
     }
 
     window.addEventListener('keydown', (e) => { if(e.code === 'Space') handleInput(); });
