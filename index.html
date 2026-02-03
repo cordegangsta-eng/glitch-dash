@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GLITCH DASH | SECRET</title>
+    <title>GLITCH DASH | IMMORTAL</title>
     <style>
         body { margin: 0; background: #000; overflow: hidden; font-family: monospace; }
         canvas { display: block; background: #050505; }
@@ -27,6 +27,7 @@
     let score = 0;
     let highScore = localStorage.getItem('glitchHighScore') || 0;
     let speed = 8;
+    const MAX_SPEED = 25; // PREVENTS CRASHING AT HIGH SCORES
     let obstacles = [];
     let spawnCount = 0; 
     
@@ -50,11 +51,10 @@
         if (!gameActive) return;
         spawnCount++;
         
-        // Pattern: 4, 7, 12, 20 are Hollow
         const isHollow = [4, 7, 12, 20].includes(spawnCount);
         
         if (isHollow) {
-            const holeH = 200; 
+            const holeH = 220; 
             const holeY = Math.random() * (canvas.height - holeH - 100) + 50;
             obstacles.push({ x: canvas.width, w: 60, type: 'hollow', hY: holeY, hH: holeH });
             if (spawnCount >= 20) spawnCount = 0; 
@@ -62,7 +62,9 @@
             obstacles.push({ x: canvas.width, w: 35, h: Math.random() * 120 + 50, type: 'solid' });
         }
         
-        setTimeout(spawn, Math.max(400, 1600 - (score * 10)));
+        // Spawn rate also capped to prevent "Wall of Death"
+        let spawnDelay = Math.max(350, 1600 - (score * 10));
+        setTimeout(spawn, spawnDelay);
     }
 
     function update() {
@@ -71,20 +73,15 @@
         p.dy += p.grav;
         p.y += p.dy;
 
-        // Ground bounds
         if (p.y + p.size > canvas.height) {
             p.y = canvas.height - p.size;
             p.dy = 0;
         }
 
-        // SECRET: Top bound removed! 
-        // You can fly above y = 0 and stay there to avoid all obstacles.
-
         obstacles.forEach((o, i) => {
             o.x -= speed;
             
-            // Only check collision if player is actually visible on screen
-            // If p.y < -p.size, you are in the "Safe Zone"
+            // Safe Zone Check: If you are above the screen, no collision
             if (p.y + p.size > 0) {
                 if (o.type === 'solid') {
                     if (p.x < o.x + o.w && p.x + p.size > o.x && p.y + p.size > canvas.height - o.h) crash();
@@ -98,7 +95,10 @@
             if (o.x + o.w < 0) {
                 obstacles.splice(i, 1);
                 score++;
-                speed += 0.1;
+                
+                // Speed cap logic
+                if (speed < MAX_SPEED) speed += 0.08;
+                
                 if (score % 10 === 0) themeIdx = (themeIdx + 1) % themes.length;
                 if (score > highScore) {
                     highScore = score;
@@ -118,13 +118,11 @@
         ctx.fillStyle = '#050505';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Player
         if (gameActive) {
             ctx.fillStyle = themes[themeIdx];
             ctx.fillRect(p.x, p.y, p.size, p.size);
         }
 
-        // Obstacles
         obstacles.forEach(o => {
             ctx.fillStyle = themes[(themeIdx + 1) % themes.length];
             if (o.type === 'solid') {
@@ -141,7 +139,7 @@
 
     function handleInput() {
         if (!gameActive) return;
-        p.dy = p.jump; // Unlimited Jump
+        p.dy = p.jump;
     }
 
     window.addEventListener('keydown', (e) => { if(e.code === 'Space') handleInput(); });
